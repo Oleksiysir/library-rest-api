@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import com.example.library.validation.NotFutureYear;
 
 public class BookRequest {
     @NotBlank(message = "Title must not be blank")
@@ -22,8 +23,8 @@ public class BookRequest {
     private String isbn;
 
     @NotNull(message = "Publication year is required")
-    @Min(value = 0, message = "Publication year cannot be negative")
-    @Max(value = 2100, message = "Publication year cannot exceed 2100")
+    @Min(value = 1, message = "Publication year must be greater than 0")
+    @NotFutureYear
     private Integer publicationYear;
 
     @NotNull(message = "Quantity is required")
