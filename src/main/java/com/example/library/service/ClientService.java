@@ -11,8 +11,10 @@ import com.example.library.model.Loan;
 import com.example.library.repository.BookRepository;
 import com.example.library.repository.ClientRepository;
 import com.example.library.repository.LoanRepository;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.List;
 import java.util.Locale;
@@ -31,16 +33,19 @@ public class ClientService {
         this.loans = loans;
     }
 
+    @Cacheable(cacheNames = "clientsAll")
     @Transactional(readOnly = true)
     public List<ClientResponse> findAll() {
         return clients.findAllByOrderByIdAsc().stream().map(this::toResponse).toList();
     }
 
+    @Cacheable(cacheNames = "clientById", key = "#id")
     @Transactional(readOnly = true)
     public ClientResponse findById(Long id) {
         return toResponse(getClient(id));
     }
 
+    @CacheEvict(cacheNames = {"clientsAll", "clientById"}, allEntries = true)
     @Transactional
     public ClientResponse create(ClientRequest request) {
         String email = normalizeEmail(request.getEmail());
@@ -52,6 +57,7 @@ public class ClientService {
         return toResponse(clients.saveAndFlush(client));
     }
 
+    @CacheEvict(cacheNames = {"clientsAll", "clientById"}, allEntries = true)
     @Transactional
     public ClientResponse update(Long id, ClientRequest request) {
         Client client = getClient(id);
@@ -65,6 +71,16 @@ public class ClientService {
         return toResponse(clients.saveAndFlush(client));
     }
 
+    @CacheEvict(
+            cacheNames = {
+                    "clientsAll",
+                    "clientById",
+                    "clientBooks",
+                    "booksAll",
+                    "bookById"
+            },
+            allEntries = true
+    )
     @Transactional
     public void delete(Long id) {
         Client client = getClient(id);
@@ -74,14 +90,24 @@ public class ClientService {
         clients.delete(client);
     }
 
+    @CacheEvict(
+            cacheNames = {
+                    "clientsAll",
+                    "clientById",
+                    "clientBooks",
+                    "booksAll",
+                    "bookById"
+            },
+            allEntries = true
+    )
     @Transactional
     public void deleteAll() {
         returnCopies(loans.findAllByOrderByIdAsc());
         loans.deleteAllInBatch();
         clients.deleteAllInBatch();
-        // The book catalogue remains; copies that were on loan are returned to stock.
     }
 
+    @Cacheable(cacheNames = "clientBooks", key = "#clientId")
     @Transactional(readOnly = true)
     public List<BookResponse> findBooks(Long clientId) {
         getClient(clientId);

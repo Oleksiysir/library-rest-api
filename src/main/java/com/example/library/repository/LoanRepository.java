@@ -13,4 +13,6 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
     void deleteAllByClient_Id(Long clientId);
 
     void deleteAllByBook_Id(Long bookId);
+
+    long countByClient_Id(Long clientId);
 }

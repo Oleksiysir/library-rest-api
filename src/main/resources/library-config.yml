@@ -1,0 +1,4 @@
+library:
+  borrowing:
+    enabled: true
+    max-active-per-client: 5

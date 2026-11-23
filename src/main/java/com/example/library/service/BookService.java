@@ -9,6 +9,8 @@ import com.example.library.repository.BookRepository;
 import com.example.library.repository.LoanRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.util.List;
 import java.util.Locale;
@@ -23,16 +25,19 @@ public class BookService {
         this.loans = loans;
     }
 
+    @Cacheable(cacheNames = "booksAll")
     @Transactional(readOnly = true)
     public List<BookResponse> findAll() {
         return books.findAllByOrderByIdAsc().stream().map(this::toResponse).toList();
     }
 
+    @Cacheable(cacheNames = "bookById", key = "#id")
     @Transactional(readOnly = true)
     public BookResponse findById(Long id) {
         return toResponse(getBook(id));
     }
 
+    @CacheEvict(cacheNames = {"booksAll", "bookById", "clientBooks"}, allEntries = true)
     @Transactional
     public BookResponse create(BookRequest request) {
         String isbn = normalizeIsbn(request.getIsbn());
@@ -50,6 +55,7 @@ public class BookService {
         return toResponse(books.saveAndFlush(book));
     }
 
+    @CacheEvict(cacheNames = {"booksAll", "bookById", "clientBooks"}, allEntries = true)
     @Transactional
     public BookResponse update(Long id, BookRequest request) {
         Book book = getBook(id);
@@ -66,6 +72,7 @@ public class BookService {
         return toResponse(books.saveAndFlush(book));
     }
 
+    @CacheEvict(cacheNames = {"booksAll", "bookById", "clientBooks"}, allEntries = true)
     @Transactional
     public void delete(Long id) {
         Book book = getBook(id);
@@ -73,6 +80,7 @@ public class BookService {
         books.delete(book);
     }
 
+    @CacheEvict(cacheNames = {"booksAll", "bookById", "clientBooks"}, allEntries = true)
     @Transactional
     public void deleteAll() {
         loans.deleteAllInBatch();

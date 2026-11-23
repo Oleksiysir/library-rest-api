@@ -12,21 +12,26 @@ import com.example.library.repository.ClientRepository;
 import com.example.library.repository.LoanRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.library.config.LibraryProperties;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.springframework.cache.annotation.CacheEvict;
 
 @Service
 public class LoanService {
     private final LoanRepository loans;
     private final ClientRepository clients;
     private final BookRepository books;
+    private final LibraryProperties properties;
 
-    public LoanService(LoanRepository loans, ClientRepository clients, BookRepository books) {
+    public LoanService(LoanRepository loans, ClientRepository clients, BookRepository books, LibraryProperties properties) {
         this.loans = loans;
         this.clients = clients;
         this.books = books;
+        this.properties = properties;
     }
 
     @Transactional(readOnly = true)
@@ -39,26 +44,44 @@ public class LoanService {
         return toResponse(getLoan(id));
     }
 
+    @CacheEvict(cacheNames = {"booksAll", "bookById", "clientBooks"}, allEntries = true)
     @Transactional
     public LoanResponse assign(LoanRequest request) {
-        Client client = clients.findById(request.getClientId())
+
+        if (!properties.getBorrowing().isEnabled()) {
+            throw new ConflictException("Book borrowing is currently disabled");
+        }
+
+        Client client = clients.findByIdForUpdate(request.getClientId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Client with id " + request.getClientId() + " was not found"));
 
-        // A row-level lock prevents two concurrent requests from issuing the final copy.
+        long activeLoans = loans.countByClient_Id(client.getId());
+
+        if (activeLoans >= properties.getBorrowing().getMaxActivePerClient()) {
+            throw new ConflictException(
+                    "Client has reached the maximum number of active loans"
+            );
+        }
+
         Book book = books.findByIdForUpdate(request.getBookId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Book with id " + request.getBookId() + " was not found"));
 
         if (book.getQuantity() <= 0) {
-            throw new ConflictException("No copies available for book with id " + book.getId());
+            throw new ConflictException(
+                    "No copies available for book with id " + book.getId()
+            );
         }
 
         book.setQuantity(book.getQuantity() - 1);
+
         Loan loan = loans.saveAndFlush(new Loan(client, book));
+
         return toResponse(loan);
     }
 
+    @CacheEvict(cacheNames = {"booksAll", "bookById", "clientBooks"}, allEntries = true)
     @Transactional
     public void returnBook(Long id) {
         Loan loan = getLoan(id);
@@ -69,6 +92,7 @@ public class LoanService {
         loans.delete(loan);
     }
 
+    @CacheEvict(cacheNames = {"booksAll", "bookById", "clientBooks"}, allEntries = true)
     @Transactional
     public void deleteAllAndReturnBooks() {
         List<Loan> activeLoans = loans.findAllByOrderByIdAsc();
