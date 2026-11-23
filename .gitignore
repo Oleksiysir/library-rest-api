@@ -1,0 +1,22 @@
+# Maven
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Local configuration and secrets
+.env
+.env.*
+**/application-local.properties
+
+# Logs
+logs/
+*.log
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
